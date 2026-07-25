@@ -11,15 +11,15 @@ const Input = z.object({
 const PROMPT = `You are extracting patient billing information from a hospital face sheet. Return ONLY a JSON object with these exact keys (use empty string "" if a field is not present, do not guess):
 
 {
-  "firstName": "", "lastName": "", "dob": "", "mrn": "",
-  "admissionDate": "", "dischargeDate": "", "attendingPhysician": "",
-  "primaryDiagnosis": "", "icd10": "",
-  "insuranceName": "", "memberId": "", "groupNumber": "",
+  "firstName": "", "lastName": "", "dob": "", "sex": "", "phone": "", "mrn": "",
+  "admissionDate": "", "dischargeDate": "", "admissionType": "", "facilityName": "",
+  "attendingPhysician": "", "primaryDiagnosis": "", "icd10": "",
+  "insuranceName": "", "memberId": "", "groupNumber": "", "priorAuthNumber": "",
   "secondaryInsuranceName": "", "secondaryInsuranceId": "",
   "guarantorName": "", "guarantorRelationship": ""
 }
 
-Format dates as MM/DD/YYYY. Return JSON only, no markdown, no commentary.`;
+Format dates as MM/DD/YYYY. For "sex" use M or F. For "admissionType" use the value as printed (e.g., Emergency, Elective, Urgent, Observation). Return JSON only, no markdown, no commentary.`;
 
 export const extractFaceSheet = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => Input.parse(data))
