@@ -11,15 +11,20 @@ type Fields = {
   firstName: string;
   lastName: string;
   dob: string;
+  sex: string;
+  phone: string;
   mrn: string;
   admissionDate: string;
   dischargeDate: string;
+  admissionType: string;
+  facilityName: string;
   attendingPhysician: string;
   primaryDiagnosis: string;
   icd10: string;
   insuranceName: string;
   memberId: string;
   groupNumber: string;
+  priorAuthNumber: string;
   secondaryInsuranceName: string;
   secondaryInsuranceId: string;
   guarantorName: string;
@@ -27,10 +32,10 @@ type Fields = {
 };
 
 const EMPTY: Fields = {
-  firstName: "", lastName: "", dob: "", mrn: "",
-  admissionDate: "", dischargeDate: "", attendingPhysician: "",
-  primaryDiagnosis: "", icd10: "",
-  insuranceName: "", memberId: "", groupNumber: "",
+  firstName: "", lastName: "", dob: "", sex: "", phone: "", mrn: "",
+  admissionDate: "", dischargeDate: "", admissionType: "", facilityName: "",
+  attendingPhysician: "", primaryDiagnosis: "", icd10: "",
+  insuranceName: "", memberId: "", groupNumber: "", priorAuthNumber: "",
   secondaryInsuranceName: "", secondaryInsuranceId: "",
   guarantorName: "", guarantorRelationship: "",
 };
@@ -39,15 +44,20 @@ const FIELD_LABELS: Record<keyof Fields, string> = {
   firstName: "First Name",
   lastName: "Last Name",
   dob: "Date of Birth",
+  sex: "Sex",
+  phone: "Phone",
   mrn: "MRN",
   admissionDate: "Admission Date",
   dischargeDate: "Discharge Date",
+  admissionType: "Admission Type",
+  facilityName: "Facility Name",
   attendingPhysician: "Attending Physician",
   primaryDiagnosis: "Primary Diagnosis",
   icd10: "ICD-10 Code",
   insuranceName: "Insurance Name",
   memberId: "Member ID",
   groupNumber: "Group Number",
+  priorAuthNumber: "Prior Authorization #",
   secondaryInsuranceName: "Secondary Insurance Name",
   secondaryInsuranceId: "Secondary Insurance ID",
   guarantorName: "Guarantor Name",
@@ -55,9 +65,9 @@ const FIELD_LABELS: Record<keyof Fields, string> = {
 };
 
 const SECTIONS: { title: string; fields: (keyof Fields)[] }[] = [
-  { title: "Patient", fields: ["firstName", "lastName", "dob", "mrn"] },
-  { title: "Encounter", fields: ["admissionDate", "dischargeDate", "attendingPhysician", "primaryDiagnosis", "icd10"] },
-  { title: "Primary Insurance", fields: ["insuranceName", "memberId", "groupNumber"] },
+  { title: "Patient", fields: ["firstName", "lastName", "dob", "sex", "phone", "mrn"] },
+  { title: "Encounter", fields: ["facilityName", "admissionDate", "dischargeDate", "admissionType", "attendingPhysician", "primaryDiagnosis", "icd10"] },
+  { title: "Primary Insurance", fields: ["insuranceName", "memberId", "groupNumber", "priorAuthNumber"] },
   { title: "Secondary Insurance", fields: ["secondaryInsuranceName", "secondaryInsuranceId"] },
   { title: "Guarantor", fields: ["guarantorName", "guarantorRelationship"] },
 ];
