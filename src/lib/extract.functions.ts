@@ -29,7 +29,7 @@ export const extractFaceSheet = createServerFn({ method: "POST" })
 
     const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
     const gateway = createLovableAiGatewayProvider(key);
-    const model = gateway("google/gemini-2.5-flash");
+    const model = gateway("google/gemini-3.6-flash");
 
     const bytes = Uint8Array.from(atob(data.base64), (c) => c.charCodeAt(0));
 
