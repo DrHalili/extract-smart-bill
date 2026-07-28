@@ -51,20 +51,18 @@ A way for face sheets to arrive in the app without the user manually downloading
 ## Recommended scope
 
 ### For this demo
-Add **Option C (camera capture)** only. It keeps the app self-contained and gives the mobile "photo of a paper face sheet" workflow without building fax/email infrastructure.
-
-Changes:
-- Split upload area into two visible actions: "Drop files or browse" and "Take photo".
-- Camera input uses `accept="image/*" capture="environment"` for mobile browsers.
-- Uploaded photo joins the same job queue and gets extracted like any other image.
+Keep the existing batch file upload only (drag/drop or browse PDFs/images). Do not add camera capture, fax, or email input — those require mobile-to-desktop routing or third-party infrastructure that is out of scope.
 
 ### For a future production build
-Add **Option B (email forwarding)** first because it piggybacks on existing e-fax services and is cheaper to operate than owning fax numbers. Add **Option A (direct fax number)** only if users demand a dedicated inbound fax line.
+1. Add **Option B (email forwarding)** first because it piggybacks on existing e-fax services and is cheaper to operate than owning fax numbers.
+2. Add **Option A (direct fax number)** only if users demand a dedicated inbound fax line.
+3. Revisit **Option C (camera capture)** only with a proper mobile-to-desktop handoff (e.g., upload to a shared queue tied to the desktop account).
 
 ## What we would not build
 - A full fax-sending outbound feature.
 - A separate "loading account" or customer-specific routing workflow (already flagged as out of scope by the user).
 - Phone/SMS-based submission.
+- Camera capture without account-linked routing.
 
 ## Next step
-Confirm whether to implement Option C (camera capture) in the current demo, or keep the demo as-is and only document the production options.
+Confirm the demo stays as a simple batch uploader, or decide which production input path to prototype next.
