@@ -154,19 +154,54 @@ function Index() {
     );
   };
 
-  const downloadCsv = () => {
+  const buildCsv = () => {
     const rows = [
       ["File", ...ALL_KEYS.map((k) => FIELD_LABELS[k])],
       ...doneJobs.map((j) => [j.fileName, ...ALL_KEYS.map((k) => j.fields[k])]),
     ];
-    const csv = rows.map((r) => r.map(csvEscape).join(",")).join("\r\n");
-    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" }));
+    return rows.map((r) => r.map(csvEscape).join(",")).join("\r\n");
+  };
+
+  const csvFileName = () => `face-sheets-${new Date().toISOString().slice(0, 10)}.csv`;
+
+  const downloadCsv = () => {
+    const url = URL.createObjectURL(
+      new Blob([`\uFEFF${buildCsv()}`], { type: "text/csv;charset=utf-8" }),
+    );
     const a = document.createElement("a");
     a.href = url;
-    a.download = `face-sheets-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = csvFileName();
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  const emailCsv = async () => {
+    const name = csvFileName();
+    const file = new File([`\uFEFF${buildCsv()}`], name, { type: "text/csv" });
+    const nav = navigator as Navigator & {
+      canShare?: (data: { files?: File[] }) => boolean;
+      share?: (data: unknown) => Promise<void>;
+    };
+    if (nav.share && nav.canShare?.({ files: [file] })) {
+      try {
+        await nav.share({
+          files: [file],
+          title: "Face sheet data",
+          text: `${doneJobs.length} face sheet${doneJobs.length === 1 ? "" : "s"} extracted.`,
+        });
+        return;
+      } catch {
+        // user cancelled or sharing unavailable — fall through
+      }
+    }
+    // Fallback: download the file and open a pre-filled email draft to attach it.
+    downloadCsv();
+    const body = encodeURIComponent(
+      `Attached: ${name} — ${doneJobs.length} face sheet${doneJobs.length === 1 ? "" : "s"}.\n\n(The spreadsheet was just downloaded to this device; attach it to this email.)`,
+    );
+    window.location.href = `mailto:?subject=${encodeURIComponent("Face sheet data")}&body=${body}`;
+  };
+
 
   const runJob = useCallback(
     async (id: string, file: File) => {
