@@ -79,6 +79,7 @@ const FIELD_LABELS: Record<keyof Fields, string> = {
   secondaryInsuranceId: "Secondary Insurance ID",
   guarantorName: "Guarantor Name",
   guarantorRelationship: "Guarantor Relationship",
+  handwrittenNotes: "Handwritten Notes on Sheet",
 };
 
 const ALL_KEYS = Object.keys(FIELD_LABELS) as (keyof Fields)[];
@@ -89,6 +90,7 @@ const SECTIONS: { title: string; fields: (keyof Fields)[] }[] = [
   { title: "Primary Insurance", fields: ["insuranceName", "memberId", "groupNumber", "priorAuthNumber"] },
   { title: "Secondary Insurance", fields: ["secondaryInsuranceName", "secondaryInsuranceId"] },
   { title: "Guarantor", fields: ["guarantorName", "guarantorRelationship"] },
+  { title: "Handwritten Notes", fields: ["handwrittenNotes"] },
 ];
 
 type JobStatus = "queued" | "working" | "done" | "error";
