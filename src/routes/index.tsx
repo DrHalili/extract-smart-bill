@@ -293,16 +293,6 @@ function Index() {
             >
               Browse files
             </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                cameraInputRef.current?.click();
-              }}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-            >
-              Take photo
-            </button>
           </div>
         </section>
 
