@@ -44,9 +44,9 @@ A way for face sheets to arrive in the app without the user manually downloading
   - New file input with `capture="environment"` (or user-facing camera button).
   - Minor UI polish for mobile: larger tap targets, confirm/crop hint.
   - No new backend integration — uses existing `extractFaceSheet` server function.
-- **Pros:** Zero third-party accounts; demo-ready today; directly addresses the "pile of face sheets" workflow for mobile users.
-- **Cons:** Still manual per sheet; not truly "fax".
-- **Verdict:** Best for the current demo.
+- **Pros:** Zero third-party accounts; directly addresses the "pile of face sheets" workflow for mobile users.
+- **Cons:** Still manual per sheet; not truly "fax"; the user's actual workflow is mobile photo → desktop app, which needs routing/storage.
+- **Verdict:** Deferred for the demo. Revisit when the mobile-to-desktop handoff is in scope.
 
 ## Recommended scope
 
