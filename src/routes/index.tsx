@@ -124,6 +124,7 @@ function Index() {
   const [dragging, setDragging] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const selected = jobs.find((j) => j.id === selectedId) ?? null;
   const doneJobs = jobs.filter((j) => j.status === "done");
@@ -262,7 +263,7 @@ function Index() {
           onDragLeave={() => setDragging(false)}
           onDrop={onDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`cursor-pointer rounded-xl border-2 border-dashed p-10 text-center transition-colors ${
+          className={`cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition-colors sm:p-10 ${
             dragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/30"
           }`}
         >
@@ -277,10 +278,45 @@ function Index() {
               e.target.value = "";
             }}
           />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? []);
+              if (files.length) void addFiles(files);
+              e.target.value = "";
+            }}
+          />
           <p className="text-base font-medium">Drop face sheets here — one or a whole pile</p>
           <p className="mt-1 text-sm text-muted-foreground">
             {remaining > 0 ? `${remaining} still scanning…` : "PDFs or images · click to browse"}
           </p>
+
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                fileInputRef.current?.click();
+              }}
+              className="rounded-md border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-muted"
+            >
+              Browse files
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                cameraInputRef.current?.click();
+              }}
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+            >
+              Take photo
+            </button>
+          </div>
         </section>
 
         {jobs.length > 0 && (
