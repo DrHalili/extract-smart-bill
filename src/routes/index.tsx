@@ -299,7 +299,6 @@ function Index() {
               </button>
             </div>
           )}
-          )}
         </div>
       </header>
 
