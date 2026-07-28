@@ -277,18 +277,6 @@ function Index() {
               e.target.value = "";
             }}
           />
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={(e) => {
-              const files = Array.from(e.target.files ?? []);
-              if (files.length) void addFiles(files);
-              e.target.value = "";
-            }}
-          />
           <p className="text-base font-medium">Drop face sheets here — one or a whole pile</p>
           <p className="mt-1 text-sm text-muted-foreground">
             {remaining > 0 ? `${remaining} still scanning…` : "PDFs or images · click to browse"}
