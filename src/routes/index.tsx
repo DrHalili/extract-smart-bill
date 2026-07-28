@@ -45,6 +45,7 @@ type Fields = {
   secondaryInsuranceId: string;
   guarantorName: string;
   guarantorRelationship: string;
+  handwrittenNotes: string;
 };
 
 const EMPTY: Fields = {
@@ -53,7 +54,7 @@ const EMPTY: Fields = {
   attendingPhysician: "", primaryDiagnosis: "", icd10: "",
   insuranceName: "", memberId: "", groupNumber: "", priorAuthNumber: "",
   secondaryInsuranceName: "", secondaryInsuranceId: "",
-  guarantorName: "", guarantorRelationship: "",
+  guarantorName: "", guarantorRelationship: "", handwrittenNotes: "",
 };
 
 const FIELD_LABELS: Record<keyof Fields, string> = {
