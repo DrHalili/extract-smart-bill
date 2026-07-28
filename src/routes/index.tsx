@@ -45,6 +45,7 @@ type Fields = {
   secondaryInsuranceId: string;
   guarantorName: string;
   guarantorRelationship: string;
+  handwrittenNotes: string;
 };
 
 const EMPTY: Fields = {
@@ -53,7 +54,7 @@ const EMPTY: Fields = {
   attendingPhysician: "", primaryDiagnosis: "", icd10: "",
   insuranceName: "", memberId: "", groupNumber: "", priorAuthNumber: "",
   secondaryInsuranceName: "", secondaryInsuranceId: "",
-  guarantorName: "", guarantorRelationship: "",
+  guarantorName: "", guarantorRelationship: "", handwrittenNotes: "",
 };
 
 const FIELD_LABELS: Record<keyof Fields, string> = {
@@ -78,6 +79,7 @@ const FIELD_LABELS: Record<keyof Fields, string> = {
   secondaryInsuranceId: "Secondary Insurance ID",
   guarantorName: "Guarantor Name",
   guarantorRelationship: "Guarantor Relationship",
+  handwrittenNotes: "Handwritten Notes on Sheet",
 };
 
 const ALL_KEYS = Object.keys(FIELD_LABELS) as (keyof Fields)[];
@@ -88,6 +90,7 @@ const SECTIONS: { title: string; fields: (keyof Fields)[] }[] = [
   { title: "Primary Insurance", fields: ["insuranceName", "memberId", "groupNumber", "priorAuthNumber"] },
   { title: "Secondary Insurance", fields: ["secondaryInsuranceName", "secondaryInsuranceId"] },
   { title: "Guarantor", fields: ["guarantorName", "guarantorRelationship"] },
+  { title: "Handwritten Notes", fields: ["handwrittenNotes"] },
 ];
 
 type JobStatus = "queued" | "working" | "done" | "error";
@@ -151,19 +154,54 @@ function Index() {
     );
   };
 
-  const downloadCsv = () => {
+  const buildCsv = () => {
     const rows = [
       ["File", ...ALL_KEYS.map((k) => FIELD_LABELS[k])],
       ...doneJobs.map((j) => [j.fileName, ...ALL_KEYS.map((k) => j.fields[k])]),
     ];
-    const csv = rows.map((r) => r.map(csvEscape).join(",")).join("\r\n");
-    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" }));
+    return rows.map((r) => r.map(csvEscape).join(",")).join("\r\n");
+  };
+
+  const csvFileName = () => `face-sheets-${new Date().toISOString().slice(0, 10)}.csv`;
+
+  const downloadCsv = () => {
+    const url = URL.createObjectURL(
+      new Blob([`\uFEFF${buildCsv()}`], { type: "text/csv;charset=utf-8" }),
+    );
     const a = document.createElement("a");
     a.href = url;
-    a.download = `face-sheets-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = csvFileName();
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  const emailCsv = async () => {
+    const name = csvFileName();
+    const file = new File([`\uFEFF${buildCsv()}`], name, { type: "text/csv" });
+    const nav = navigator as Navigator & {
+      canShare?: (data: { files?: File[] }) => boolean;
+      share?: (data: unknown) => Promise<void>;
+    };
+    if (nav.share && nav.canShare?.({ files: [file] })) {
+      try {
+        await nav.share({
+          files: [file],
+          title: "Face sheet data",
+          text: `${doneJobs.length} face sheet${doneJobs.length === 1 ? "" : "s"} extracted.`,
+        });
+        return;
+      } catch {
+        // user cancelled or sharing unavailable — fall through
+      }
+    }
+    // Fallback: download the file and open a pre-filled email draft to attach it.
+    downloadCsv();
+    const body = encodeURIComponent(
+      `Attached: ${name} — ${doneJobs.length} face sheet${doneJobs.length === 1 ? "" : "s"}.\n\n(The spreadsheet was just downloaded to this device; attach it to this email.)`,
+    );
+    window.location.href = `mailto:?subject=${encodeURIComponent("Face sheet data")}&body=${body}`;
+  };
+
 
   const runJob = useCallback(
     async (id: string, file: File) => {
@@ -246,12 +284,20 @@ function Index() {
             <h1 className="text-lg font-semibold tracking-tight">FaceSheet Extract</h1>
           </div>
           {doneJobs.length > 0 && (
-            <button
-              onClick={downloadCsv}
-              className="rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted"
-            >
-              Download spreadsheet ({doneJobs.length})
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => void emailCsv()}
+                className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
+              >
+                Email spreadsheet
+              </button>
+              <button
+                onClick={downloadCsv}
+                className="hidden rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted sm:block"
+              >
+                Download spreadsheet ({doneJobs.length})
+              </button>
+            </div>
           )}
         </div>
       </header>
@@ -348,12 +394,20 @@ function Index() {
                 <div className="rounded-lg border border-border bg-card">
                   <div className="flex items-center justify-between border-b border-border px-5 py-4">
                     <h2 className="text-base font-semibold">All extracted sheets</h2>
-                    <button
-                      onClick={downloadCsv}
-                      className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
-                    >
-                      Download CSV
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => void emailCsv()}
+                        className="rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted"
+                      >
+                        Email
+                      </button>
+                      <button
+                        onClick={downloadCsv}
+                        className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
+                      >
+                        Download CSV
+                      </button>
+                    </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
