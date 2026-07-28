@@ -124,6 +124,7 @@ function Index() {
   const [dragging, setDragging] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const selected = jobs.find((j) => j.id === selectedId) ?? null;
   const doneJobs = jobs.filter((j) => j.status === "done");
