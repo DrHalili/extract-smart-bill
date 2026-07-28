@@ -394,12 +394,20 @@ function Index() {
                 <div className="rounded-lg border border-border bg-card">
                   <div className="flex items-center justify-between border-b border-border px-5 py-4">
                     <h2 className="text-base font-semibold">All extracted sheets</h2>
-                    <button
-                      onClick={downloadCsv}
-                      className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
-                    >
-                      Download CSV
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => void emailCsv()}
+                        className="rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted"
+                      >
+                        Email
+                      </button>
+                      <button
+                        onClick={downloadCsv}
+                        className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
+                      >
+                        Download CSV
+                      </button>
+                    </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
