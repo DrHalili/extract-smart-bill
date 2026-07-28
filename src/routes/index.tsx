@@ -284,12 +284,21 @@ function Index() {
             <h1 className="text-lg font-semibold tracking-tight">FaceSheet Extract</h1>
           </div>
           {doneJobs.length > 0 && (
-            <button
-              onClick={downloadCsv}
-              className="rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted"
-            >
-              Download spreadsheet ({doneJobs.length})
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => void emailCsv()}
+                className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
+              >
+                Email spreadsheet
+              </button>
+              <button
+                onClick={downloadCsv}
+                className="hidden rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted sm:block"
+              >
+                Download spreadsheet ({doneJobs.length})
+              </button>
+            </div>
+          )}
           )}
         </div>
       </header>
