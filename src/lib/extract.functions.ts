@@ -12,10 +12,11 @@ const PROMPT = `You are extracting patient billing information from a hospital f
 
 {
   "firstName": "", "lastName": "", "dob": "", "sex": "", "phone": "", "mrn": "",
-  "address": "", "city": "", "state": "", "zip": "",
+  "address": "", "address2": "", "city": "", "state": "", "zip": "",
   "admissionDate": "", "dischargeDate": "", "admissionType": "", "facilityName": "",
   "attendingPhysician": "", "primaryDiagnosis": "", "icd10": "",
   "insuranceName": "", "memberId": "", "groupNumber": "", "priorAuthNumber": "",
+  "subscriberName": "",
   "secondaryInsuranceName": "", "secondaryInsuranceId": "",
   "guarantorName": "", "guarantorRelationship": "",
   "handwrittenNotes": ""
