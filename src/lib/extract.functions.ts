@@ -22,7 +22,7 @@ const PROMPT = `You are extracting patient billing information from a hospital f
   "handwrittenNotes": ""
 }
 
-Format dates as MM/DD/YYYY. For "sex" use M or F. For "address" use only the street line (e.g., 123 Main St Apt 4), with city, state, and ZIP in their own fields. For "admissionType" use the value as printed (e.g., Emergency, Elective, Urgent, Observation). For "handwrittenNotes", transcribe any handwritten or marked-up text on the sheet (e.g., codes a physician wrote by hand, circled items, margin notes) exactly as written; if the handwriting is unclear, transcribe your best reading and add " (unclear)". Leave it "" if there is no handwriting. Return JSON only, no markdown, no commentary.`;
+Format dates as MM/DD/YYYY. For "sex" use M or F. For "address" use only the street line (e.g., 123 Main St), and put any apartment/suite/unit line in "address2"; city, state, and ZIP go in their own fields. For "subscriberName" use the name of the insured/subscriber on the primary policy (often the same as the patient). For "admissionType" use the value as printed (e.g., Emergency, Elective, Urgent, Observation). For "handwrittenNotes", transcribe any handwritten or marked-up text on the sheet (e.g., codes a physician wrote by hand, circled items, margin notes) exactly as written; if the handwriting is unclear, transcribe your best reading and add " (unclear)". Leave it "" if there is no handwriting. Return JSON only, no markdown, no commentary.`;
 
 export const extractFaceSheet = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => Input.parse(data))
