@@ -30,6 +30,10 @@ type Fields = {
   sex: string;
   phone: string;
   mrn: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
   admissionDate: string;
   dischargeDate: string;
   admissionType: string;
@@ -50,6 +54,7 @@ type Fields = {
 
 const EMPTY: Fields = {
   firstName: "", lastName: "", dob: "", sex: "", phone: "", mrn: "",
+  address: "", city: "", state: "", zip: "",
   admissionDate: "", dischargeDate: "", admissionType: "", facilityName: "",
   attendingPhysician: "", primaryDiagnosis: "", icd10: "",
   insuranceName: "", memberId: "", groupNumber: "", priorAuthNumber: "",
@@ -64,6 +69,10 @@ const FIELD_LABELS: Record<keyof Fields, string> = {
   sex: "Sex",
   phone: "Phone",
   mrn: "MRN",
+  address: "Street Address",
+  city: "City",
+  state: "State",
+  zip: "ZIP",
   admissionDate: "Admission Date",
   dischargeDate: "Discharge Date",
   admissionType: "Admission Type",
@@ -85,13 +94,20 @@ const FIELD_LABELS: Record<keyof Fields, string> = {
 const ALL_KEYS = Object.keys(FIELD_LABELS) as (keyof Fields)[];
 
 const SECTIONS: { title: string; fields: (keyof Fields)[] }[] = [
-  { title: "Patient", fields: ["firstName", "lastName", "dob", "sex", "phone", "mrn"] },
+  { title: "Patient", fields: ["firstName", "lastName", "dob", "sex", "phone", "mrn", "address", "city", "state", "zip"] },
   { title: "Encounter", fields: ["facilityName", "admissionDate", "dischargeDate", "admissionType", "attendingPhysician", "primaryDiagnosis", "icd10"] },
   { title: "Primary Insurance", fields: ["insuranceName", "memberId", "groupNumber", "priorAuthNumber"] },
   { title: "Secondary Insurance", fields: ["secondaryInsuranceName", "secondaryInsuranceId"] },
   { title: "Guarantor", fields: ["guarantorName", "guarantorRelationship"] },
   { title: "Handwritten Notes", fields: ["handwrittenNotes"] },
 ];
+
+// Order matches the usual patient-intake tab order in billing software.
+const INTAKE_KEYS: (keyof Fields)[] = [
+  "firstName", "lastName", "dob", "sex", "address", "city", "state", "zip", "phone",
+];
+
+
 
 type JobStatus = "queued" | "working" | "done" | "error";
 
@@ -126,6 +142,7 @@ function Index() {
   const [view, setView] = useState<"form" | "table">("form");
   const [dragging, setDragging] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [step, setStep] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selected = jobs.find((j) => j.id === selectedId) ?? null;
@@ -146,6 +163,21 @@ function Index() {
     }).join("\n\n");
     await copy("__all__", text);
   };
+
+  // One clipboard payload with tabs between values: paste into the first box and
+  // most billing apps / spreadsheets fill the rest as you tab across.
+  const copyIntakeTabbed = async () => {
+    if (!selected) return;
+    await copy("__intake__", INTAKE_KEYS.map((k) => selected.fields[k] ?? "").join("\t"));
+  };
+
+  const copyStep = async (index: number) => {
+    if (!selected) return;
+    const key = INTAKE_KEYS[index];
+    await copy(`step-${key}`, selected.fields[key] ?? "");
+    setStep(Math.min(index + 1, INTAKE_KEYS.length - 1));
+  };
+
 
   const updateField = (key: keyof Fields, value: string) => {
     if (!selected) return;
@@ -362,7 +394,7 @@ function Index() {
                   return (
                     <li key={job.id}>
                       <button
-                        onClick={() => { setSelectedId(job.id); setView("form"); }}
+                        onClick={() => { setSelectedId(job.id); setView("form"); setStep(0); }}
                         className={`w-full rounded-md px-2.5 py-2 text-left transition-colors ${
                           selectedId === job.id && view === "form" ? "bg-primary/10" : "hover:bg-muted"
                         }`}
@@ -457,6 +489,52 @@ function Index() {
                       {selected.error}
                     </div>
                   )}
+
+                  {selected.status === "done" && (
+                    <div className="mb-6 rounded-lg border border-primary/30 bg-primary/5 p-5">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h3 className="text-sm font-semibold">Patient intake — copy &amp; tab</h3>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            Name, DOB, gender, address, phone in intake order.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => void copyIntakeTabbed()}
+                          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
+                        >
+                          {copiedKey === "__intake__" ? "Copied all 9 fields!" : "Copy all (tab-separated)"}
+                        </button>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {INTAKE_KEYS.map((key, i) => (
+                          <button
+                            key={key}
+                            onClick={() => void copyStep(i)}
+                            className={`rounded-md border px-2.5 py-1.5 text-left text-xs transition-colors ${
+                              i === step
+                                ? "border-primary bg-background ring-1 ring-primary"
+                                : "border-border bg-background hover:bg-muted"
+                            }`}
+                          >
+                            <span className="block text-[10px] uppercase tracking-wide text-muted-foreground">
+                              {FIELD_LABELS[key]}
+                            </span>
+                            <span className="block max-w-[160px] truncate font-medium">
+                              {copiedKey === `step-${key}` ? "Copied ✓" : selected.fields[key] || "—"}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        One-at-a-time: click the highlighted chip, paste in your billing app, press Tab,
+                        then click the next chip. Works the same on Windows and Mac.
+                      </p>
+                    </div>
+                  )}
+
 
                   <div className="space-y-6">
                     {SECTIONS.map((section) => (
