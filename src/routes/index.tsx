@@ -54,6 +54,7 @@ type Fields = {
 
 const EMPTY: Fields = {
   firstName: "", lastName: "", dob: "", sex: "", phone: "", mrn: "",
+  address: "", city: "", state: "", zip: "",
   admissionDate: "", dischargeDate: "", admissionType: "", facilityName: "",
   attendingPhysician: "", primaryDiagnosis: "", icd10: "",
   insuranceName: "", memberId: "", groupNumber: "", priorAuthNumber: "",
