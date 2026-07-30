@@ -142,6 +142,7 @@ function Index() {
   const [view, setView] = useState<"form" | "table">("form");
   const [dragging, setDragging] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [step, setStep] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selected = jobs.find((j) => j.id === selectedId) ?? null;
