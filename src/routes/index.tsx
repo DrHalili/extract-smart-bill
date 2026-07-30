@@ -490,6 +490,52 @@ function Index() {
                     </div>
                   )}
 
+                  {selected.status === "done" && (
+                    <div className="mb-6 rounded-lg border border-primary/30 bg-primary/5 p-5">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h3 className="text-sm font-semibold">Patient intake — copy &amp; tab</h3>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            Name, DOB, gender, address, phone in intake order.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => void copyIntakeTabbed()}
+                          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
+                        >
+                          {copiedKey === "__intake__" ? "Copied all 9 fields!" : "Copy all (tab-separated)"}
+                        </button>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {INTAKE_KEYS.map((key, i) => (
+                          <button
+                            key={key}
+                            onClick={() => void copyStep(i)}
+                            className={`rounded-md border px-2.5 py-1.5 text-left text-xs transition-colors ${
+                              i === step
+                                ? "border-primary bg-background ring-1 ring-primary"
+                                : "border-border bg-background hover:bg-muted"
+                            }`}
+                          >
+                            <span className="block text-[10px] uppercase tracking-wide text-muted-foreground">
+                              {FIELD_LABELS[key]}
+                            </span>
+                            <span className="block max-w-[160px] truncate font-medium">
+                              {copiedKey === `step-${key}` ? "Copied ✓" : selected.fields[key] || "—"}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        One-at-a-time: click the highlighted chip, paste in your billing app, press Tab,
+                        then click the next chip. Works the same on Windows and Mac.
+                      </p>
+                    </div>
+                  )}
+
+
                   <div className="space-y-6">
                     {SECTIONS.map((section) => (
                       <div key={section.title} className="rounded-lg border border-border bg-card p-5">
