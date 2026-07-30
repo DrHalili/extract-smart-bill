@@ -164,6 +164,21 @@ function Index() {
     await copy("__all__", text);
   };
 
+  // One clipboard payload with tabs between values: paste into the first box and
+  // most billing apps / spreadsheets fill the rest as you tab across.
+  const copyIntakeTabbed = async () => {
+    if (!selected) return;
+    await copy("__intake__", INTAKE_KEYS.map((k) => selected.fields[k] ?? "").join("\t"));
+  };
+
+  const copyStep = async (index: number) => {
+    if (!selected) return;
+    const key = INTAKE_KEYS[index];
+    await copy(`step-${key}`, selected.fields[key] ?? "");
+    setStep(Math.min(index + 1, INTAKE_KEYS.length - 1));
+  };
+
+
   const updateField = (key: keyof Fields, value: string) => {
     if (!selected) return;
     setJobs((prev) =>
