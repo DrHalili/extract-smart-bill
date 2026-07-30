@@ -30,6 +30,10 @@ type Fields = {
   sex: string;
   phone: string;
   mrn: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
   admissionDate: string;
   dischargeDate: string;
   admissionType: string;
