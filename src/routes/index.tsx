@@ -394,7 +394,7 @@ function Index() {
                   return (
                     <li key={job.id}>
                       <button
-                        onClick={() => { setSelectedId(job.id); setView("form"); }}
+                        onClick={() => { setSelectedId(job.id); setView("form"); setStep(0); }}
                         className={`w-full rounded-md px-2.5 py-2 text-left transition-colors ${
                           selectedId === job.id && view === "form" ? "bg-primary/10" : "hover:bg-muted"
                         }`}
