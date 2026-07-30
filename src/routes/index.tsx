@@ -102,6 +102,13 @@ const SECTIONS: { title: string; fields: (keyof Fields)[] }[] = [
   { title: "Handwritten Notes", fields: ["handwrittenNotes"] },
 ];
 
+// Order matches the usual patient-intake tab order in billing software.
+const INTAKE_KEYS: (keyof Fields)[] = [
+  "firstName", "lastName", "dob", "sex", "address", "city", "state", "zip", "phone",
+];
+
+
+
 type JobStatus = "queued" | "working" | "done" | "error";
 
 type Job = {
