@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { extractFaceSheet } from "@/lib/extract.functions";
+import { TARGET_PROFILES } from "@/lib/target-profiles";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -18,6 +19,8 @@ export const Route = createFileRoute("/")({
         content:
           "Upload a stack of hospital face sheets and get clean, editable patient billing fields plus a spreadsheet export.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Index,
@@ -31,6 +34,7 @@ type Fields = {
   phone: string;
   mrn: string;
   address: string;
+  address2: string;
   city: string;
   state: string;
   zip: string;
@@ -45,6 +49,7 @@ type Fields = {
   memberId: string;
   groupNumber: string;
   priorAuthNumber: string;
+  subscriberName: string;
   secondaryInsuranceName: string;
   secondaryInsuranceId: string;
   guarantorName: string;
@@ -54,11 +59,11 @@ type Fields = {
 
 const EMPTY: Fields = {
   firstName: "", lastName: "", dob: "", sex: "", phone: "", mrn: "",
-  address: "", city: "", state: "", zip: "",
+  address: "", address2: "", city: "", state: "", zip: "",
   admissionDate: "", dischargeDate: "", admissionType: "", facilityName: "",
   attendingPhysician: "", primaryDiagnosis: "", icd10: "",
   insuranceName: "", memberId: "", groupNumber: "", priorAuthNumber: "",
-  secondaryInsuranceName: "", secondaryInsuranceId: "",
+  subscriberName: "", secondaryInsuranceName: "", secondaryInsuranceId: "",
   guarantorName: "", guarantorRelationship: "", handwrittenNotes: "",
 };
 
@@ -70,6 +75,7 @@ const FIELD_LABELS: Record<keyof Fields, string> = {
   phone: "Phone",
   mrn: "MRN",
   address: "Street Address",
+  address2: "Address Line 2",
   city: "City",
   state: "State",
   zip: "ZIP",
@@ -84,6 +90,7 @@ const FIELD_LABELS: Record<keyof Fields, string> = {
   memberId: "Member ID",
   groupNumber: "Group Number",
   priorAuthNumber: "Prior Authorization #",
+  subscriberName: "Subscriber / Insured",
   secondaryInsuranceName: "Secondary Insurance Name",
   secondaryInsuranceId: "Secondary Insurance ID",
   guarantorName: "Guarantor Name",
@@ -93,21 +100,51 @@ const FIELD_LABELS: Record<keyof Fields, string> = {
 
 const ALL_KEYS = Object.keys(FIELD_LABELS) as (keyof Fields)[];
 
-const SECTIONS: { title: string; fields: (keyof Fields)[] }[] = [
-  { title: "Patient", fields: ["firstName", "lastName", "dob", "sex", "phone", "mrn", "address", "city", "state", "zip"] },
-  { title: "Encounter", fields: ["facilityName", "admissionDate", "dischargeDate", "admissionType", "attendingPhysician", "primaryDiagnosis", "icd10"] },
-  { title: "Primary Insurance", fields: ["insuranceName", "memberId", "groupNumber", "priorAuthNumber"] },
-  { title: "Secondary Insurance", fields: ["secondaryInsuranceName", "secondaryInsuranceId"] },
-  { title: "Guarantor", fields: ["guarantorName", "guarantorRelationship"] },
-  { title: "Handwritten Notes", fields: ["handwrittenNotes"] },
+type Tab = { id: string; label: string; sections: { title: string; fields: (keyof Fields)[] }[] };
+
+// Tabs mirror the destination registration screen so the biller's eyes stay put.
+const TABS: Tab[] = [
+  {
+    id: "general",
+    label: "Patient / General",
+    sections: [
+      {
+        title: "Patient",
+        fields: ["lastName", "firstName", "dob", "sex", "phone", "mrn"],
+      },
+      { title: "Address", fields: ["address", "address2", "zip", "city", "state"] },
+    ],
+  },
+  {
+    id: "coverage",
+    label: "Coverage / Case",
+    sections: [
+      {
+        title: "Encounter",
+        fields: [
+          "facilityName",
+          "admissionDate",
+          "dischargeDate",
+          "admissionType",
+          "attendingPhysician",
+          "primaryDiagnosis",
+          "icd10",
+        ],
+      },
+      {
+        title: "Primary Insurance",
+        fields: ["insuranceName", "memberId", "groupNumber", "subscriberName", "priorAuthNumber"],
+      },
+      { title: "Secondary Insurance", fields: ["secondaryInsuranceName", "secondaryInsuranceId"] },
+      { title: "Guarantor", fields: ["guarantorName", "guarantorRelationship"] },
+    ],
+  },
+  {
+    id: "notes",
+    label: "Notes",
+    sections: [{ title: "Handwritten Notes", fields: ["handwrittenNotes"] }],
+  },
 ];
-
-// Order matches the usual patient-intake tab order in billing software.
-const INTAKE_KEYS: (keyof Fields)[] = [
-  "firstName", "lastName", "dob", "sex", "address", "city", "state", "zip", "phone",
-];
-
-
 
 type JobStatus = "queued" | "working" | "done" | "error";
 
@@ -117,6 +154,8 @@ type Job = {
   status: JobStatus;
   error?: string;
   fields: Fields;
+  previewUrl: string;
+  isPdf: boolean;
 };
 
 function fileToBase64(file: File): Promise<string> {
@@ -142,12 +181,22 @@ function Index() {
   const [view, setView] = useState<"form" | "table">("form");
   const [dragging, setDragging] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [step, setStep] = useState(0);
+  const [tabId, setTabId] = useState(TABS[0].id);
+  const [profileId, setProfileId] = useState(TARGET_PROFILES[0].id);
+  const [runIndex, setRunIndex] = useState<number | null>(null);
+  const [showSheet, setShowSheet] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selected = jobs.find((j) => j.id === selectedId) ?? null;
   const doneJobs = jobs.filter((j) => j.status === "done");
   const remaining = jobs.filter((j) => j.status === "queued" || j.status === "working").length;
+  const profile = TARGET_PROFILES.find((p) => p.id === profileId) ?? TARGET_PROFILES[0];
+  const activeTab = TABS.find((t) => t.id === tabId) ?? TABS[0];
+
+  // Only step through fields that actually have a value.
+  const runKeys = (profile.order as (keyof Fields)[]).filter(
+    (k) => selected && (selected.fields[k] ?? "").trim() !== "",
+  );
 
   const copy = async (key: string, value: string) => {
     await navigator.clipboard.writeText(value);
@@ -157,27 +206,57 @@ function Index() {
 
   const copyAll = async () => {
     if (!selected) return;
-    const text = SECTIONS.map((s) => {
-      const lines = s.fields.map((f) => `${FIELD_LABELS[f]}: ${selected.fields[f]}`).join("\n");
-      return `${s.title}\n${lines}`;
-    }).join("\n\n");
+    const text = TABS.flatMap((t) => t.sections)
+      .map((s) => {
+        const lines = s.fields.map((f) => `${FIELD_LABELS[f]}: ${selected.fields[f]}`).join("\n");
+        return `${s.title}\n${lines}`;
+      })
+      .join("\n\n");
     await copy("__all__", text);
   };
 
-  // One clipboard payload with tabs between values: paste into the first box and
-  // most billing apps / spreadsheets fill the rest as you tab across.
-  const copyIntakeTabbed = async () => {
+  const copyTabbed = async () => {
     if (!selected) return;
-    await copy("__intake__", INTAKE_KEYS.map((k) => selected.fields[k] ?? "").join("\t"));
+    await copy(
+      "__tabbed__",
+      (profile.order as (keyof Fields)[]).map((k) => selected.fields[k] ?? "").join("\t"),
+    );
   };
 
-  const copyStep = async (index: number) => {
-    if (!selected) return;
-    const key = INTAKE_KEYS[index];
-    await copy(`step-${key}`, selected.fields[key] ?? "");
-    setStep(Math.min(index + 1, INTAKE_KEYS.length - 1));
-  };
+  const goToStep = useCallback(
+    async (index: number) => {
+      if (!selected || runKeys.length === 0) return;
+      const clamped = Math.max(0, Math.min(index, runKeys.length - 1));
+      setRunIndex(clamped);
+      await navigator.clipboard.writeText(selected.fields[runKeys[clamped]] ?? "");
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selected, runKeys.join("|")],
+  );
 
+  // Hotkeys drive the paste run so the biller's hands stay on the keyboard.
+  useEffect(() => {
+    if (runIndex === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+      if (e.key === "Escape") {
+        setRunIndex(null);
+        return;
+      }
+      if (e.key === "Enter" || e.key === "ArrowRight" || e.key === " ") {
+        e.preventDefault();
+        if (runIndex >= runKeys.length - 1) setRunIndex(null);
+        else void goToStep(runIndex + 1);
+      }
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        void goToStep(runIndex - 1);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [runIndex, runKeys.length, goToStep]);
 
   const updateField = (key: keyof Fields, value: string) => {
     if (!selected) return;
@@ -203,8 +282,11 @@ function Index() {
     const a = document.createElement("a");
     a.href = url;
     a.download = csvFileName();
+    a.rel = "noopener";
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
   };
 
   const emailCsv = async () => {
@@ -226,14 +308,12 @@ function Index() {
         // user cancelled or sharing unavailable — fall through
       }
     }
-    // Fallback: download the file and open a pre-filled email draft to attach it.
     downloadCsv();
     const body = encodeURIComponent(
       `Attached: ${name} — ${doneJobs.length} face sheet${doneJobs.length === 1 ? "" : "s"}.\n\n(The spreadsheet was just downloaded to this device; attach it to this email.)`,
     );
     window.location.href = `mailto:?subject=${encodeURIComponent("Face sheet data")}&body=${body}`;
   };
-
 
   const runJob = useCallback(
     async (id: string, file: File) => {
@@ -271,12 +351,13 @@ function Index() {
           fileName: file.name,
           status: "queued" as JobStatus,
           fields: { ...EMPTY },
+          previewUrl: URL.createObjectURL(file),
+          isPdf: file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"),
         },
       }));
       setJobs((prev) => [...prev, ...entries.map((e) => e.job)]);
       setSelectedId((prev) => prev ?? entries[0].job.id);
 
-      // Process up to 3 at a time so a big pile doesn't stall.
       const queue = [...entries];
       const worker = async () => {
         while (queue.length) {
@@ -296,6 +377,13 @@ function Index() {
     void addFiles(Array.from(e.dataTransfer.files ?? []));
   };
 
+  const clearAll = () => {
+    jobs.forEach((j) => URL.revokeObjectURL(j.previewUrl));
+    setJobs([]);
+    setSelectedId(null);
+    setRunIndex(null);
+  };
+
   const statusChip = (job: Job) => {
     const map: Record<JobStatus, string> = {
       queued: "bg-muted text-muted-foreground",
@@ -310,7 +398,7 @@ function Index() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded bg-primary" />
             <h1 className="text-lg font-semibold tracking-tight">FaceSheet Extract</h1>
@@ -334,7 +422,7 @@ function Index() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-6 py-8">
+      <main className="mx-auto max-w-7xl px-6 py-8 pb-28">
         <section
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
@@ -375,16 +463,13 @@ function Index() {
         </section>
 
         {jobs.length > 0 && (
-          <div className="mt-8 grid gap-6 lg:grid-cols-[260px_1fr]">
+          <div className="mt-8 grid gap-6 lg:grid-cols-[240px_1fr]">
             <aside className="rounded-lg border border-border bg-card p-3">
               <div className="mb-2 flex items-center justify-between px-1">
                 <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Queue ({jobs.length})
                 </h2>
-                <button
-                  onClick={() => { setJobs([]); setSelectedId(null); }}
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                >
+                <button onClick={clearAll} className="text-xs text-muted-foreground hover:text-foreground">
                   Clear
                 </button>
               </div>
@@ -394,7 +479,7 @@ function Index() {
                   return (
                     <li key={job.id}>
                       <button
-                        onClick={() => { setSelectedId(job.id); setView("form"); setStep(0); }}
+                        onClick={() => { setSelectedId(job.id); setView("form"); setRunIndex(null); }}
                         className={`w-full rounded-md px-2.5 py-2 text-left transition-colors ${
                           selectedId === job.id && view === "form" ? "bg-primary/10" : "hover:bg-muted"
                         }`}
@@ -411,7 +496,7 @@ function Index() {
               </ul>
               {doneJobs.length > 0 && (
                 <button
-                  onClick={() => setView("table")}
+                  onClick={() => { setView("table"); setRunIndex(null); }}
                   className={`mt-3 w-full rounded-md px-2.5 py-2 text-left text-sm font-medium transition-colors ${
                     view === "table" ? "bg-primary/10 text-primary" : "hover:bg-muted"
                   }`}
@@ -468,7 +553,7 @@ function Index() {
                 </div>
               ) : selected ? (
                 <>
-                  <div className="mb-4 flex items-center justify-between">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h2 className="text-base font-semibold">
                         {[selected.fields.lastName, selected.fields.firstName].filter(Boolean).join(", ") ||
@@ -476,12 +561,20 @@ function Index() {
                       </h2>
                       <p className="text-xs text-muted-foreground">{selected.fileName}</p>
                     </div>
-                    <button
-                      onClick={copyAll}
-                      className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
-                    >
-                      {copiedKey === "__all__" ? "Copied!" : "Copy All"}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setShowSheet((s) => !s)}
+                        className="rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted"
+                      >
+                        {showSheet ? "Hide face sheet" : "Show face sheet"}
+                      </button>
+                      <button
+                        onClick={copyAll}
+                        className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
+                      >
+                        {copiedKey === "__all__" ? "Copied!" : "Copy All"}
+                      </button>
+                    </div>
                   </div>
 
                   {selected.status === "error" && (
@@ -492,82 +585,145 @@ function Index() {
 
                   {selected.status === "done" && (
                     <div className="mb-6 rounded-lg border border-primary/30 bg-primary/5 p-5">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-end justify-between gap-3">
                         <div>
-                          <h3 className="text-sm font-semibold">Patient intake — copy &amp; tab</h3>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            Name, DOB, gender, address, phone in intake order.
-                          </p>
+                          <h3 className="text-sm font-semibold">Paste run — match your billing screen</h3>
+                          <label className="mt-2 block text-[11px] uppercase tracking-wide text-muted-foreground">
+                            Destination screen
+                          </label>
+                          <select
+                            value={profileId}
+                            onChange={(e) => { setProfileId(e.target.value); setRunIndex(null); }}
+                            className="mt-1 rounded-md border border-input bg-background px-2.5 py-1.5 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                          >
+                            {TARGET_PROFILES.map((p) => (
+                              <option key={p.id} value={p.id}>{p.label}</option>
+                            ))}
+                          </select>
+                          <p className="mt-1.5 text-xs text-muted-foreground">{profile.hint}</p>
                         </div>
-                        <button
-                          onClick={() => void copyIntakeTabbed()}
-                          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
-                        >
-                          {copiedKey === "__intake__" ? "Copied all 9 fields!" : "Copy all (tab-separated)"}
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => void copyTabbed()}
+                            className="rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium hover:bg-muted"
+                          >
+                            {copiedKey === "__tabbed__" ? "Copied!" : "Copy all (tab-separated)"}
+                          </button>
+                          <button
+                            onClick={() => void goToStep(0)}
+                            disabled={runKeys.length === 0}
+                            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
+                          >
+                            Start paste run
+                          </button>
+                        </div>
                       </div>
 
                       <div className="mt-4 flex flex-wrap gap-2">
-                        {INTAKE_KEYS.map((key, i) => (
+                        {runKeys.map((key, i) => (
                           <button
                             key={key}
-                            onClick={() => void copyStep(i)}
+                            onClick={() => void goToStep(i)}
                             className={`rounded-md border px-2.5 py-1.5 text-left text-xs transition-colors ${
-                              i === step
+                              i === runIndex
                                 ? "border-primary bg-background ring-1 ring-primary"
                                 : "border-border bg-background hover:bg-muted"
                             }`}
                           >
                             <span className="block text-[10px] uppercase tracking-wide text-muted-foreground">
-                              {FIELD_LABELS[key]}
+                              {i + 1}. {FIELD_LABELS[key]}
                             </span>
                             <span className="block max-w-[160px] truncate font-medium">
-                              {copiedKey === `step-${key}` ? "Copied ✓" : selected.fields[key] || "—"}
+                              {selected.fields[key] || "—"}
                             </span>
                           </button>
                         ))}
                       </div>
 
                       <p className="mt-3 text-xs text-muted-foreground">
-                        One-at-a-time: click the highlighted chip, paste in your billing app, press Tab,
-                        then click the next chip. Works the same on Windows and Mac.
+                        Rhythm: <strong>Ctrl/Cmd+V</strong> → <strong>Tab</strong> → click back here (or press{" "}
+                        <strong>Enter</strong>) to load the next field. Empty fields are skipped automatically.
                       </p>
                     </div>
                   )}
 
-
-                  <div className="space-y-6">
-                    {SECTIONS.map((section) => (
-                      <div key={section.title} className="rounded-lg border border-border bg-card p-5">
-                        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                          {section.title}
-                        </h3>
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                          {section.fields.map((key) => (
-                            <div key={key}>
-                              <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                                {FIELD_LABELS[key]}
-                              </label>
-                              <div className="flex gap-2">
-                                <input
-                                  type="text"
-                                  value={selected.fields[key]}
-                                  onChange={(e) => updateField(key, e.target.value)}
-                                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                                />
-                                <button
-                                  onClick={() => copy(key, selected.fields[key])}
-                                  className="shrink-0 rounded-md border border-border px-2.5 text-xs hover:bg-muted"
-                                  title="Copy"
-                                >
-                                  {copiedKey === key ? "✓" : "Copy"}
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                  <div className={showSheet ? "grid gap-6 xl:grid-cols-[1fr_minmax(280px,420px)]" : ""}>
+                    <div>
+                      <div className="mb-4 flex gap-1 border-b border-border">
+                        {TABS.map((t) => (
+                          <button
+                            key={t.id}
+                            onClick={() => setTabId(t.id)}
+                            className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+                              t.id === tabId
+                                ? "border-primary text-primary"
+                                : "border-transparent text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            {t.label}
+                          </button>
+                        ))}
                       </div>
-                    ))}
+
+                      <div className="space-y-6">
+                        {activeTab.sections.map((section) => (
+                          <div key={section.title} className="rounded-lg border border-border bg-card p-5">
+                            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                              {section.title}
+                            </h3>
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                              {section.fields.map((key) => (
+                                <div key={key}>
+                                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                                    {FIELD_LABELS[key]}
+                                  </label>
+                                  <div className="flex gap-2">
+                                    <input
+                                      type="text"
+                                      value={selected.fields[key]}
+                                      onChange={(e) => updateField(key, e.target.value)}
+                                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                                    />
+                                    <button
+                                      onClick={() => copy(key, selected.fields[key])}
+                                      className="shrink-0 rounded-md border border-border px-2.5 text-xs hover:bg-muted"
+                                      title="Copy"
+                                    >
+                                      {copiedKey === key ? "✓" : "Copy"}
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {showSheet && (
+                      <div className="rounded-lg border border-border bg-card p-3">
+                        <h3 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Face sheet
+                        </h3>
+                        {selected.isPdf ? (
+                          <object
+                            data={selected.previewUrl}
+                            type="application/pdf"
+                            className="h-[70vh] w-full rounded-md border border-border"
+                          >
+                            <a href={selected.previewUrl} target="_blank" rel="noreferrer" className="text-sm text-primary underline">
+                              Open PDF
+                            </a>
+                          </object>
+                        ) : (
+                          <img
+                            src={selected.previewUrl}
+                            alt={`Uploaded face sheet ${selected.fileName}`}
+                            className="max-h-[70vh] w-full rounded-md border border-border object-contain"
+                          />
+                        )}
+                      </div>
+                    )}
                   </div>
                 </>
               ) : null}
@@ -575,6 +731,47 @@ function Index() {
           </div>
         )}
       </main>
+
+      {runIndex !== null && selected && runKeys[runIndex] && (
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card shadow-lg">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-6 py-3">
+            <span className="rounded-full bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground">
+              {runIndex + 1}/{runKeys.length}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                {FIELD_LABELS[runKeys[runIndex]]} — on your clipboard
+              </div>
+              <div className="truncate text-sm font-medium">
+                {selected.fields[runKeys[runIndex]]}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => void goToStep(runIndex - 1)}
+                disabled={runIndex === 0}
+                className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-40"
+              >
+                Back
+              </button>
+              <button
+                onClick={() =>
+                  runIndex >= runKeys.length - 1 ? setRunIndex(null) : void goToStep(runIndex + 1)
+                }
+                className="rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
+              >
+                {runIndex >= runKeys.length - 1 ? "Finish" : "Next field →"}
+              </button>
+              <button
+                onClick={() => setRunIndex(null)}
+                className="rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+              >
+                Esc
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

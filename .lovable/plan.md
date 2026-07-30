@@ -1,68 +1,58 @@
-# Fax / email / photo input — exploration plan
+## Short answer on feasibility
 
-## What the user is asking
-A way for face sheets to arrive in the app without the user manually downloading and uploading files. The three main flavors are:
+A web app **cannot type into another desktop program**. The browser sandbox has no access to other windows, and that Registration screen is a native Windows app (possibly over Citrix), not a web page. So:
 
-1. **Real e-fax receiving** — app owns a fax number; inbound faxes become extraction jobs.
-2. **Email forwarding** — faxes (or any scanned/photo attachment) are emailed to a dedicated app address; attachments become extraction jobs.
-3. **In-app camera capture** — user snaps a photo on their phone and it uploads straight into the queue.
+| Approach | Works from this web app? |
+|---|---|
+| Copy one field, user pastes | Yes (today) |
+| Copy all fields tab-separated, user pastes once and tabs | Yes, but only if the target accepts tabbed paste — most legacy Windows forms do **not** (Tab moves focus, it doesn't split a pasted string) |
+| App presses keys into the other window (true autofill) | **No** — impossible from a browser |
+| True autofill | Only via a small desktop helper (AutoHotkey on Windows / Keyboard Maestro on Mac) or a browser extension if the app is actually web-based inside Citrix |
 
-## Current app state
-- Single-page batch uploader: drag/drop or browse PDFs/images.
-- Server function extracts fields with AI and returns structured data.
-- Jobs queue processes up to 3 files at once.
-- Results are editable per file and exportable as CSV.
-- No auth, no storage, no inbound webhooks/email.
+Looking at the General tab specifically: the tabbed-paste trick will likely fail there, because fields like Zip Code, St, Gender and Date of Birth are lookup/dropdown controls, not plain text boxes. So the reliable win is **making the one-at-a-time flow near-zero-effort and in the exact order of that screen**.
 
-## Option comparison
+## What to build
 
-### Option A: Real e-fax receiving
-- **How it works:** Subscribe to a fax API (Twilio Fax, RingCentral, SRFax, HelloFax, etc.), get a phone number, configure the provider to POST inbound fax PDFs to a public webhook route.
-- **App changes needed:**
-  - Public webhook route under `/api/public/fax-inbound` to receive the PDF.
-  - File storage to persist the fax PDF (Lovable Cloud storage or provider-hosted URL).
-  - Create a job from the fax and run the existing extraction server function.
-  - Show fax metadata (sender number, pages, received at) in the queue.
-- **Pros:** True "fax to data" workflow; billers love it.
-- **Cons:** Requires paid third-party account + phone number; needs webhook security; not demo-friendly because you can't test it without a real fax line.
-- **Verdict:** Production feature, not MVP demo.
+### 1. Target screen profiles
+Add a small profile concept that maps our extracted fields to the exact tab order of a real destination screen. Ship two profiles built from the screenshots:
 
-### Option B: Email-to-app (forwarded faxes or scanned attachments)
-- **How it works:** Most e-fax services email the PDF. App gets a dedicated inbound address (e.g. `sheets@yourdomain.com`) and parses attachments from incoming email.
-- **App changes needed:**
-  - Email domain set up in Lovable Cloud.
-  - Public webhook route under `/api/public/email-inbound` using Lovable email events/webhooks.
-  - Extract PDF/image attachments from the email.
-  - Create a job and run extraction.
-- **Pros:** Works with existing fax services; no phone number needed; users can also forward photos/scans from their phone email.
-- **Cons:** Requires domain ownership and DNS setup; still real infrastructure.
-- **Verdict:** Good production path, slightly easier than direct fax.
+**Registration — General**
+Last Name → First → Address 1 → Address 2 → Zip Code → City → State → Date of Birth → Gender → SSN (blank) → Primary Phone
 
-### Option C: In-app camera capture
-- **How it works:** Add a "Take photo" button on the upload area that opens the device camera, then uploads the photo into the same batch queue.
-- **App changes needed:**
-  - New file input with `capture="environment"` (or user-facing camera button).
-  - Minor UI polish for mobile: larger tap targets, confirm/crop hint.
-  - No new backend integration — uses existing `extractFaceSheet` server function.
-- **Pros:** Zero third-party accounts; directly addresses the "pile of face sheets" workflow for mobile users.
-- **Cons:** Still manual per sheet; not truly "fax"; the user's actual workflow is mobile photo → desktop app, which needs routing/storage.
-- **Verdict:** Deferred for the demo. Revisit when the mobile-to-desktop handoff is in scope.
+**Registration — Coverage/Case Info**
+Facility → Insurance Company → Member No → Subscriber/Insured → Relationship → ICD-10 → Hosp-From date (admission) → To (discharge)
 
-## Recommended scope
+A dropdown at the top of the results panel picks the active profile. Profiles are data, so more can be added later without redesign.
 
-### For this demo
-Keep the existing batch file upload only (drag/drop or browse PDFs/images). Do not add camera capture, fax, or email input — those require mobile-to-desktop routing or third-party infrastructure that is out of scope.
+### 2. Keyboard-driven sequential paste ("hands stay on the keyboard")
+Replace clicking chips with a flow the biller can run without looking back at the browser:
 
-### For a future production build
-1. Add **Option B (email forwarding)** first because it piggybacks on existing e-fax services and is cheaper to operate than owning fax numbers.
-2. Add **Option A (direct fax number)** only if users demand a dedicated inbound fax line.
-3. Revisit **Option C (camera capture)** only with a proper mobile-to-desktop handoff (e.g., upload to a shared queue tied to the desktop account).
+- A "Start paste run" button copies field 1 and shows a compact heads-up strip: `1/11 · Last Name · SUGIMURA`.
+- A global hotkey advances: press it → next value is on the clipboard, counter advances. Rhythm becomes: `Ctrl+V`, `Tab`, hotkey, `Ctrl+V`, `Tab`…
+- Back/skip controls for fields the screen doesn't have, and auto-skip of empty values.
+- Same keystrokes on Windows and Mac; nothing OS-specific.
 
-## What we would not build
-- A full fax-sending outbound feature.
-- A separate "loading account" or customer-specific routing workflow (already flagged as out of scope by the user).
-- Phone/SMS-based submission.
-- Camera capture without account-linked routing.
+Caveat worth stating plainly: the hotkey only fires while the browser window has focus, so the biller alternates windows anyway. A second, lower-friction variant is included: an "advance on copy" mode where clicking anywhere in the strip advances — one click instead of hunting for a chip.
 
-## Next step
-Confirm the demo stays as a simple batch uploader, or decide which production input path to prototype next.
+### 3. Face sheet viewable side-by-side
+Keep the uploaded page rendered next to the fields so the biller can eyeball anything the model got wrong (especially handwriting) without reopening the PDF. This is the "face sheet viewable?" ask and is cheap to add for images; PDFs render in an embedded frame.
+
+### 4. Coverage/case tabs in the UI
+Group the results panel into tabs that mirror the destination app — Patient/General, Coverage/Case — so the on-screen layout matches what the biller is looking at. Reduces eye travel and mis-pastes.
+
+### 5. Fix the download behavior
+The CSV path should download directly rather than opening a window that needs a second click. Verify the current download and email buttons trigger a real file save in one action on both desktop and mobile.
+
+## Notes for later (not in this build)
+
+- **True autofill** would be a ~100-line AutoHotkey script the biller runs on her Windows machine: the web app writes a payload to the clipboard in a known format, the script reads it and types field-by-field with Tabs into the focused window. This is the only realistic path to a single "fill the whole screen" button, and it's a separate deliverable from the web app.
+- **If that Registration app is web-based inside Citrix**, a browser extension could autofill by CSS selector. Worth confirming — it changes what's possible substantially.
+- Whether the target uses a Zip-code lookup that auto-populates City/State matters; if it does, the profile should skip City and State entirely.
+
+## Technical details
+
+- Profiles: a typed constant array in `src/routes/index.tsx` (or a small `src/lib/target-profiles.ts`) — `{ id, label, order: (keyof Fields)[] }`.
+- Sequential paste: local component state for the active index plus a `keydown` listener on `window`; clipboard writes via `navigator.clipboard.writeText`, unchanged from today.
+- Address 2, SSN and Subscriber/Insured aren't currently extracted — add `address2`, `subscriberName` to the extraction prompt and field set; SSN is deliberately left out (PHI risk, rarely on a face sheet).
+- Face sheet preview needs the uploaded `File` retained per job as an object URL; today the file is discarded after base64 conversion.
+- No backend changes beyond the extraction prompt.
