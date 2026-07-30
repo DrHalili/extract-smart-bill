@@ -94,7 +94,7 @@ const FIELD_LABELS: Record<keyof Fields, string> = {
 const ALL_KEYS = Object.keys(FIELD_LABELS) as (keyof Fields)[];
 
 const SECTIONS: { title: string; fields: (keyof Fields)[] }[] = [
-  { title: "Patient", fields: ["firstName", "lastName", "dob", "sex", "phone", "mrn"] },
+  { title: "Patient", fields: ["firstName", "lastName", "dob", "sex", "phone", "mrn", "address", "city", "state", "zip"] },
   { title: "Encounter", fields: ["facilityName", "admissionDate", "dischargeDate", "admissionType", "attendingPhysician", "primaryDiagnosis", "icd10"] },
   { title: "Primary Insurance", fields: ["insuranceName", "memberId", "groupNumber", "priorAuthNumber"] },
   { title: "Secondary Insurance", fields: ["secondaryInsuranceName", "secondaryInsuranceId"] },
